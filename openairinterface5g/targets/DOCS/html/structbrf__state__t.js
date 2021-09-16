@@ -1,0 +1,28 @@
+var structbrf__state__t =
+[
+    [ "dev", "group____BLADERF__PHY__RF__INTERFACE__.html#ga836fa27c6f15033e5718092383e7f736", null ],
+    [ "num_buffers", "group____BLADERF__PHY__RF__INTERFACE__.html#gacc181d520431fef40205e6b3ade6df89", null ],
+    [ "buffer_size", "group____BLADERF__PHY__RF__INTERFACE__.html#ga94a4dfe352de99d40662872fd3f18991", null ],
+    [ "num_transfers", "group____BLADERF__PHY__RF__INTERFACE__.html#ga28ab555ba98ee3a5cb9b4f8b4c9ac488", null ],
+    [ "rx_timeout_ms", "group____BLADERF__PHY__RF__INTERFACE__.html#gaa41420f268b9543eed1286038a917624", null ],
+    [ "tx_timeout_ms", "group____BLADERF__PHY__RF__INTERFACE__.html#ga07c0610d6bbc25388105c2265a0fb215", null ],
+    [ "meta_rx", "group____BLADERF__PHY__RF__INTERFACE__.html#ga0da54c96ce6b3e370a0af2e6e0b126ac", null ],
+    [ "meta_tx", "group____BLADERF__PHY__RF__INTERFACE__.html#gab6b8b5b8a767ac0f63a3cc237a0ebe57", null ],
+    [ "sample_rate", "group____BLADERF__PHY__RF__INTERFACE__.html#gae520095a0bf54e1f5b5c81394c08fe7a", null ],
+    [ "tdiff", "group____BLADERF__PHY__RF__INTERFACE__.html#gae4fdc71c7a351a8b416b874743b35d9a", null ],
+    [ "tx_forward_nsamps", "group____BLADERF__PHY__RF__INTERFACE__.html#ga836d5de48ea914ce97131d2b883b146c", null ],
+    [ "num_underflows", "group____BLADERF__PHY__RF__INTERFACE__.html#ga32d948ff2b5ccb90426414f0d43561cf", null ],
+    [ "num_overflows", "group____BLADERF__PHY__RF__INTERFACE__.html#gaf446187faddf588c9f48945416d7bfef", null ],
+    [ "num_seq_errors", "group____BLADERF__PHY__RF__INTERFACE__.html#gaa878f3f5e78e7ca7adf74136f0c645ca", null ],
+    [ "num_rx_errors", "group____BLADERF__PHY__RF__INTERFACE__.html#ga77c4db96b0b2b07e9401f06e97041643", null ],
+    [ "num_tx_errors", "group____BLADERF__PHY__RF__INTERFACE__.html#gab74d12377c74ff3eb4be0bbd5e4b5a3b", null ],
+    [ "tx_current_ts", "group____BLADERF__PHY__RF__INTERFACE__.html#ga107010dc90853b1373164ee9be124f0a", null ],
+    [ "rx_current_ts", "group____BLADERF__PHY__RF__INTERFACE__.html#gada8cf98b7ac2d2cb10cee03ab1494eab", null ],
+    [ "tx_actual_nsamps", "group____BLADERF__PHY__RF__INTERFACE__.html#ga188dc90a84fa838dc0bb15744ab77b89", null ],
+    [ "rx_actual_nsamps", "group____BLADERF__PHY__RF__INTERFACE__.html#ga33fe94f323f1cc5bab3acafcb2c6ca5a", null ],
+    [ "tx_nsamps", "group____BLADERF__PHY__RF__INTERFACE__.html#ga7120d955244caabe03bba64d5060d08a", null ],
+    [ "rx_nsamps", "group____BLADERF__PHY__RF__INTERFACE__.html#ga6a58927f8f3ccf715950ab65c2b6b277", null ],
+    [ "tx_count", "group____BLADERF__PHY__RF__INTERFACE__.html#ga06b59cb19636e64d4eabb714508ba621", null ],
+    [ "rx_count", "group____BLADERF__PHY__RF__INTERFACE__.html#ga8ac92c1b2095a4d4def3ecbc0e80b11f", null ],
+    [ "rx_timestamp", "group____BLADERF__PHY__RF__INTERFACE__.html#ga872fdca56e9ff4c009821acbe7f47cb9", null ]
+];

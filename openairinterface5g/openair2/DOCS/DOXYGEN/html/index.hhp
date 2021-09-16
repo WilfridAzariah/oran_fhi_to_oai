@@ -1,0 +1,73 @@
+[OPTIONS]
+Compiled file=irs_openair.chm
+Compatibility=1.1
+Full-text search=Yes
+Contents file=index.hhc
+Default Window=main
+Default topic=index.html
+Index file=index.hhk
+Language=0x409 English (United States)
+Title=OPENAIR2
+
+[WINDOWS]
+main="OPENAIR2","index.hhc","index.hhk","index.html","index.html",,,,,0x23520,,0x10387e,,,,,,,,0
+
+[FILES]
+annotated.html
+classes.html
+dir_7df49ef0c5f0d4b2a785a319ccac4397.html
+files.html
+functions.html
+functions_vars.html
+globals.html
+globals_defs.html
+globals_type.html
+group__em.html
+index.html
+mac__rlc__primitives_8h.html
+mac__rlc__primitives_8h_source.html
+mac__rrc__primitives_8h.html
+mac__rrc__primitives_8h_source.html
+modules.html
+structDEFAULT__CH__MEAS.html
+structDEFAULT__MEAS__IND.html
+structDEFAULT__MEAS__REQ.html
+structDEFAULT__UE__MEAS.html
+structLCHAN__ID.html
+structMAC__AVG__T.html
+structMAC__CONFIG__CONFIRM.html
+structMAC__CONFIG__REQ.html
+structMAC__MEAS__CONFIRM.html
+structMAC__MEAS__IND.html
+structMAC__MEAS__REQ.html
+structMAC__MEAS__T.html
+structMAC__OUT__OF__SYNC.html
+structMAC__RLC__MEAS__DESC.html
+structMAC__RLC__MEAS__T.html
+structMAC__RLC__XFACE.html
+structMAC__SYNC.html
+structMEAS__REQ__TABLE__ENTRY.html
+structRLC__MEAS__DESC.html
+structRRC__XFACE.html
+structmac__data__ind.html
+structmac__data__req.html
+structmac__primitive.html
+structmac__rx__tb__management.html
+structmac__status__ind.html
+structmac__status__resp.html
+structmac__tb__ind.html
+structmac__tb__req.html
+structmac__tx__tb__management.html
+structrlc__entity__info.html
+bc_s.png
+bdwn.png
+closed.png
+nav_f.png
+nav_h.png
+open.png
+sync_off.png
+sync_on.png
+tab_a.png
+tab_b.png
+tab_h.png
+tab_s.png
