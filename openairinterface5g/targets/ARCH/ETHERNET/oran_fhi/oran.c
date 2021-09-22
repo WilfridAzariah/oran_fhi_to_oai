@@ -1626,7 +1626,7 @@ void oranFHI_fh_if4p5_south_in(RU_t *ru,
                     pRbElm = &pRbMap->prbMap[0];
                     if(pRbMap->nPrbElm == 1){
                         //pos =  ((char*)p_rx_log_buffer[flowId]) + rx_log_buffer_position[flowId];
-                        rxdata = &ru->common.rxdataF[antenna][symbol * fp->ofdm_symbol_size];
+                        rxdata = &ru->common.rxdataF[ant_id][sym_id * fp->ofdm_symbol_size];
                         ptr =  psBbuIo->sFrontHaulRxBbuIoBufCtrl[tti][cc_id][ant_id].sBufferList.pBuffers[sym_id].pData;
                         if(ptr){
                             u32dptr = (uint32_t*)(ptr);
@@ -1650,7 +1650,7 @@ void oranFHI_fh_if4p5_south_in(RU_t *ru,
                             if(p_sec_desc){
                                 if(sym_id >= pRbElm->nStartSymb && sym_id < pRbElm->nStartSymb + pRbElm->numSymb){
                                     //pos =  ((char*)p_rx_log_buffer[flowId]) + rx_log_buffer_position[flowId];
-                                    rxdata = &ru->common.rxdataF[antenna][symbol * fp->ofdm_symbol_size];
+                                    rxdata = &ru->common.rxdataF[ant_id][sym_id * fp->ofdm_symbol_size];
                                     ptr = p_sec_desc->pData;
                                     if(ptr){
                                         int32_t payload_len = 0;
