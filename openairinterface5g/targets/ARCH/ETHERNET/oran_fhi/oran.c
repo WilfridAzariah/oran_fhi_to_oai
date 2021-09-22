@@ -1796,9 +1796,7 @@ void oranFHI_fh_if4p5_south_out(RU_t *ru,
 {
   PHY_VARS_eNB **eNB_list = ru->eNB_list, *eNB;
   LTE_DL_FRAME_PARMS *fp;
-  int symbol;
   int32_t *txdata;
-  int aa;
 
   //printf("BENETEL: %s (f.sf %d.%d ts %ld)\n", __FUNCTION__, frame, subframe, timestamp);
 
