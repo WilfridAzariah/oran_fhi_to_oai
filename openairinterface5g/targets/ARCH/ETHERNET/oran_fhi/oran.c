@@ -1565,35 +1565,188 @@ void oranFHI_fh_if4p5_south_in(RU_t *ru,
                                int *frame,
                                int *subframe)
 {
-  benetel_eth_state_t *s = ru->ifdevice.priv;
+
   PHY_VARS_eNB **eNB_list = ru->eNB_list, *eNB;
   LTE_DL_FRAME_PARMS *fp;
   int symbol;
   int32_t *rxdata;
   int antenna;
 
-  lock_ul_buffer(&s->buffers, *subframe);
-next:
-  while (!((s->buffers.ul_busy[0][*subframe] == 0x3fff &&
-            s->buffers.ul_busy[1][*subframe] == 0x3fff) ||
-           s->buffers.prach_busy[*subframe] == 1))
-    wait_ul_buffer(&s->buffers, *subframe);
-  if (s->buffers.prach_busy[*subframe] == 1) {
-    int i;
-    int antenna = 0;
-    uint16_t *in;
-    uint16_t *out;
-    in = (uint16_t *)s->buffers.prach[*subframe];
-    out = (uint16_t *)ru->prach_rxsigF[0][antenna];
-    for (i = 0; i < 840*2; i++)
-      out[i] = ntohs(in[i]);
-    s->buffers.prach_busy[*subframe] = 0;
-    ru->wakeup_prach_eNB(ru->eNB_list[0], ru, *frame, *subframe);
-    goto next;
-  }
-
   eNB = eNB_list[0];
   fp  = &eNB->frame_parms;
+
+    BbuXranIoIfStruct *psBbuIo = xran_get_ctx();
+    xran_status_t status;
+    int32_t nSectorIndex[XRAN_MAX_SECTOR_NR];
+    int32_t nSectorNum;
+    int32_t cc_id, ant_id, sym_id, tti;
+    int32_t flowId;
+
+    uint8_t    frame_id    = 0;
+    uint8_t    subframe_id = 0;
+    uint8_t    slot_id     = 0;
+    uint8_t    sym         = 0;
+
+    void *ptr;
+    uint32_t *u32dptr;
+    uint16_t *u16dptr;
+    uint8_t  *u8dptr;
+
+    uint32_t xran_max_antenna_nr = RTE_MAX(startupConfiguration.numAxc, startupConfiguration.numUlAxc);
+    uint32_t xran_max_ant_array_elm_nr = RTE_MAX(startupConfiguration.antElmTRx, xran_max_antenna_nr);
+
+    char        *pos = NULL;
+
+    for (nSectorNum = 0; nSectorNum < XRAN_MAX_SECTOR_NR; nSectorNum++)
+    {
+        nSectorIndex[nSectorNum] = nSectorNum;
+    }
+    nSectorNum = numCCPorts;
+    printf ("get_xran_iq_content\n");
+
+    /* Init Memory */
+    for(cc_id = 0; cc_id <nSectorNum; cc_id++)
+    {
+        for(tti  = 0; tti  < XRAN_N_FE_BUF_LEN; tti++) {
+            for(ant_id = 0; ant_id < xran_max_antenna_nr; ant_id++){
+                int32_t idxElm = 0;
+                struct xran_prb_map *pRbMap = NULL;
+                struct xran_prb_elm *pRbElm = NULL;
+                struct xran_section_desc *p_sec_desc = NULL;
+                pRbMap = (struct xran_prb_map *) psBbuIo->sFrontHaulRxPrbMapBbuIoBufCtrl[tti][cc_id][ant_id].sBufferList.pBuffers->pData;
+                if(pRbMap == NULL)
+                    exit(-1);
+
+                if(startupConfiguration.appMode == APP_O_RU)
+                    flowId = startupConfiguration.numAxc * cc_id + ant_id;
+                else
+                    flowId = startupConfiguration.numUlAxc * cc_id + ant_id;
+
+                for(sym_id = 0; sym_id < XRAN_NUM_OF_SYMBOL_PER_SLOT; sym_id++) {
+                    pRbElm = &pRbMap->prbMap[0];
+                    if(pRbMap->nPrbElm == 1){
+                        //pos =  ((char*)p_rx_log_buffer[flowId]) + rx_log_buffer_position[flowId];
+                        rxdata = &ru->common.rxdataF[antenna][symbol * fp->ofdm_symbol_size];
+                        ptr =  psBbuIo->sFrontHaulRxBbuIoBufCtrl[tti][cc_id][ant_id].sBufferList.pBuffers[sym_id].pData;
+                        if(ptr){
+                            u32dptr = (uint32_t*)(ptr);
+                            // BENETEL REFERENCE
+                            /**
+                            memcpy(rxdata + 2048 - 600,
+                                    &s->buffers.ul[antenna][*subframe][symbol*1200*4],
+                                    600 * 4);
+                            memcpy(rxdata,
+                                    &s->buffers.ul[antenna][*subframe][symbol*1200*4] + 600*4,
+                                    600 * 4);
+                            **/
+                            rte_memcpy(rxdata + pRbElm->nRBStart*N_SC_PER_PRB*4L , u32dptr, pRbElm->nRBSize*N_SC_PER_PRB*4L);
+                        }else {
+                            printf("[%d][%d][%d][%d]ptr ==NULL\n",tti,cc_id,ant_id, sym_id);
+                        }
+                    } else {
+                        for(idxElm = 0; idxElm < pRbMap->nPrbElm; idxElm++ ) {
+                            pRbElm = &pRbMap->prbMap[idxElm];
+                            p_sec_desc = pRbElm->p_sec_desc[sym_id];
+                            if(p_sec_desc){
+                                if(sym_id >= pRbElm->nStartSymb && sym_id < pRbElm->nStartSymb + pRbElm->numSymb){
+                                    //pos =  ((char*)p_rx_log_buffer[flowId]) + rx_log_buffer_position[flowId];
+                                    rxdata = &ru->common.rxdataF[antenna][symbol * fp->ofdm_symbol_size];
+                                    ptr = p_sec_desc->pData;
+                                    if(ptr){
+                                        int32_t payload_len = 0;
+                                        u32dptr = (uint32_t*)(ptr);
+                                        if (pRbElm->compMethod != XRAN_COMPMETHOD_NONE){
+                                            struct xranlib_decompress_request  bfp_decom_req;
+                                            struct xranlib_decompress_response bfp_decom_rsp;
+
+                                            memset(&bfp_decom_req, 0, sizeof(struct xranlib_decompress_request));
+                                            memset(&bfp_decom_rsp, 0, sizeof(struct xranlib_decompress_response));
+
+                                            bfp_decom_req.data_in    = (int8_t *)u32dptr;
+                                            bfp_decom_req.numRBs     = pRbElm->nRBSize;
+                                            bfp_decom_req.len        = (3* pRbElm->iqWidth + 1)*pRbElm->nRBSize;
+                                            bfp_decom_req.compMethod = pRbElm->compMethod;
+                                            bfp_decom_req.iqWidth    = pRbElm->iqWidth;
+
+                                            bfp_decom_rsp.data_out   = (int16_t *)(rxdata + pRbElm->nRBStart*N_SC_PER_PRB*4);
+                                            bfp_decom_rsp.len        = 0;
+
+                                            xranlib_decompress_avx512(&bfp_decom_req, &bfp_decom_rsp);
+                                            payload_len = bfp_decom_rsp.len;
+
+                                       } else {
+                                            rte_memcpy(rxdata + pRbElm->nRBStart*N_SC_PER_PRB*4 , u32dptr, pRbElm->nRBSize*N_SC_PER_PRB*4);
+                                       }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                }
+
+                // WILL INVESTIGATE FURTHER FOR PRACH, RIGHT NOW CANNOT
+
+                /* prach RX for O-DU only */
+                /**
+                if(startupConfiguration.appMode == APP_O_DU) {
+                    flowId = startupConfiguration.numAxc * cc_id + ant_id;
+                    for(sym_id = 0; sym_id < XRAN_NUM_OF_SYMBOL_PER_SLOT; sym_id++){
+                        if(p_prach_log_buffer[flowId]){
+                            // (0-79 slots) 10ms of IQs 
+                            pos =  ((char*)p_prach_log_buffer[flowId]) + prach_log_buffer_position[flowId];
+                            ptr = psBbuIo->sFHPrachRxBbuIoBufCtrl[tti][cc_id][ant_id].sBufferList.pBuffers[sym_id].pData; //8192 144
+                            if(ptr){
+                                u32dptr = (uint32_t*)(ptr);
+                                rte_memcpy(pos, u32dptr, PRACH_PLAYBACK_BUFFER_BYTES);
+                            }else
+                                printf("ptr ==NULL\n");
+
+                            prach_log_buffer_position[flowId] += PRACH_PLAYBACK_BUFFER_BYTES;
+
+                            if(prach_log_buffer_position[flowId] >= prach_log_buffer_size[flowId])
+                                prach_log_buffer_position[flowId] = 0;
+                        } else {
+                            //printf("flowId %d\n", flowId);
+                        }
+                    }
+                }
+                **/
+            }
+
+            // WILL INVESTIGATE FURTHER FOR SRS, RIGHT NOW CANNOT
+            
+            /* SRS RX for O-DU only */
+            /**
+            if(startupConfiguration.appMode == APP_O_DU && startupConfiguration.enableSrs) {
+                for(ant_id = 0; ant_id < xran_max_ant_array_elm_nr; ant_id++){
+                    flowId = startupConfiguration.antElmTRx*cc_id + ant_id;
+                    for(sym_id = 0; sym_id < XRAN_MAX_NUM_OF_SRS_SYMBOL_PER_SLOT; sym_id++){
+                        if(p_srs_log_buffer[flowId]){
+                            pos =  ((char*)p_srs_log_buffer[flowId]) + srs_log_buffer_position[flowId];
+                            ptr = psBbuIo->sFHSrsRxBbuIoBufCtrl[tti][cc_id][ant_id].sBufferList.pBuffers[sym_id].pData;
+                            if(ptr){
+                                u32dptr = (uint32_t*)(ptr);
+                                rte_memcpy(pos, u32dptr, pXranConf->nULRBs*N_SC_PER_PRB*4);
+                            }else
+                                printf("ptr ==NULL\n");
+
+                            srs_log_buffer_position[flowId] += pXranConf->nULRBs*N_SC_PER_PRB*4;
+
+                            if(srs_log_buffer_position[flowId] >= srs_log_buffer_size[flowId])
+                                srs_log_buffer_position[flowId] = 0;
+                        } else {
+                            //printf("flowId %d\n", flowId);
+                        }
+                    }
+                }
+            }
+            **/
+        }
+    }
+
+  // ORIGINAL BENETEL LOOP
+  /**
   for (antenna = 0; antenna < ru->nb_rx; antenna++) {
     for (symbol = 0; symbol < 14; symbol++) {
       int i;
@@ -1612,11 +1765,7 @@ next:
 #endif
     }
   }
-
-  s->buffers.ul_busy[0][*subframe] = 0;
-  s->buffers.ul_busy[1][*subframe] = 0;
-  signal_ul_buffer(&s->buffers, *subframe);
-  unlock_ul_buffer(&s->buffers, *subframe);
+  **/
 
   //printf("BENETEL: %s (f.sf %d.%d)\n", __FUNCTION__, *frame, *subframe);
 
