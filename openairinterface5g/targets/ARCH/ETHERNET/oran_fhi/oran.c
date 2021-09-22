@@ -1568,9 +1568,7 @@ void oranFHI_fh_if4p5_south_in(RU_t *ru,
 
   PHY_VARS_eNB **eNB_list = ru->eNB_list, *eNB;
   LTE_DL_FRAME_PARMS *fp;
-  int symbol;
   int32_t *rxdata;
-  int antenna;
 
   eNB = eNB_list[0];
   fp  = &eNB->frame_parms;
