@@ -1929,7 +1929,7 @@ void oranFHI_fh_if4p5_south_out(RU_t *ru,
 
 
                     //pos =  ((char*)p_tx_play_buffer[flowId]) + tx_play_buffer_position[flowId];
-                    txdata = &ru->common.txdataF_BF[aa][symbol * fp->ofdm_symbol_size];
+                    txdata = &ru->common.txdataF_BF[ant_id][sym_id * fp->ofdm_symbol_size];
                     ptr = psBbuIo->sFrontHaulTxBbuIoBufCtrl[tti][cc_id][ant_id].sBufferList.pBuffers[sym_id].pData;
 
                     if(ptr){
