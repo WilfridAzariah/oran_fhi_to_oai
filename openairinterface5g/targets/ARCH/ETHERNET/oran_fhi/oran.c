@@ -1794,7 +1794,6 @@ void oranFHI_fh_if4p5_south_out(RU_t *ru,
                                 int subframe,
                                 uint64_t timestamp)
 {
-  benetel_eth_state_t *s = ru->ifdevice.priv;
   PHY_VARS_eNB **eNB_list = ru->eNB_list, *eNB;
   LTE_DL_FRAME_PARMS *fp;
   int symbol;
@@ -1805,13 +1804,6 @@ void oranFHI_fh_if4p5_south_out(RU_t *ru,
 
   VCD_SIGNAL_DUMPER_DUMP_VARIABLE_BY_NAME( VCD_SIGNAL_DUMPER_VARIABLES_TRX_TST, ru->proc.timestamp_tx&0xffffffff );
 
-  lock_dl_buffer(&s->buffers, subframe);
-  if (s->buffers.dl_busy[0][subframe] ||
-      s->buffers.dl_busy[1][subframe]) {
-    printf("%s: fatal: DL buffer busy for subframe %d\n", __FUNCTION__, subframe);
-     unlock_dl_buffer(&s->buffers, subframe);
-    return;
-  }
   eNB = eNB_list[0];
   fp  = &eNB->frame_parms;
   if (ru->num_eNB != 1 || fp->ofdm_symbol_size != 2048 ||
@@ -1821,6 +1813,350 @@ void oranFHI_fh_if4p5_south_out(RU_t *ru,
     exit(1);
   }
 
+  BbuXranIoIfStruct *psBbuIo = xran_get_ctx();
+    xran_status_t status;
+    int32_t nSectorIndex[XRAN_MAX_SECTOR_NR];
+    int32_t nSectorNum;
+    int32_t cc_id, ant_id, sym_id, tti;
+    int32_t flowId;
+
+    uint8_t    frame_id    = 0;
+    uint8_t    subframe_id = 0;
+    uint8_t    slot_id     = 0;
+    uint8_t    sym         = 0;
+
+    void *ptr;
+    uint32_t *u32dptr;
+    uint16_t *u16dptr;
+    uint8_t  *u8dptr;
+
+    uint32_t xran_max_antenna_nr = RTE_MAX(startupConfiguration.numAxc, startupConfiguration.numUlAxc);
+    uint32_t xran_max_ant_array_elm_nr = RTE_MAX(startupConfiguration.antElmTRx, xran_max_antenna_nr);
+
+    char *pos = NULL;
+    struct xran_prb_map *pRbMap = NULL;
+
+    for (nSectorNum = 0; nSectorNum < XRAN_MAX_SECTOR_NR; nSectorNum++)
+    {
+        nSectorIndex[nSectorNum] = nSectorNum;
+    }
+    nSectorNum = numCCPorts;
+    printf ("init_xran_iq_content\n");
+
+    /* Init Memory */
+    for(cc_id = 0; cc_id <nSectorNum; cc_id++)
+    {
+        for(tti  = 0; tti  < XRAN_N_FE_BUF_LEN; tti ++) {
+            for(ant_id = 0; ant_id < xran_max_antenna_nr; ant_id++){
+                for(sym_id = 0; sym_id < XRAN_NUM_OF_SYMBOL_PER_SLOT; sym_id++) {
+
+                    if(startupConfiguration.appMode == APP_O_DU)
+                        flowId = startupConfiguration.numAxc * cc_id + ant_id;
+                    else
+                        flowId = startupConfiguration.numUlAxc * cc_id + ant_id;
+
+
+                    // BENETEL CURRENTLY NO C-PLANE, SKIP FOR NOW
+                    /* c-plane DL */
+                    /**
+                    pRbMap = (struct xran_prb_map *) psBbuIo->sFrontHaulTxPrbMapBbuIoBufCtrl[tti][cc_id][ant_id].sBufferList.pBuffers->pData;
+                    if(pRbMap){
+                        if (xranInit.DynamicSectionEna == 0){
+                            pRbMap->dir = XRAN_DIR_DL;
+                            pRbMap->xran_port = 0;
+                            pRbMap->band_id = 0;
+                            pRbMap->cc_id = cc_id;
+                            pRbMap->ru_port_id = ant_id;
+                            pRbMap->tti_id = tti;
+                            pRbMap->start_sym_id = 0;
+                            pRbMap->nPrbElm = 1;
+                            pRbMap->prbMap[0].nStartSymb = 0;
+                            pRbMap->prbMap[0].numSymb = 14;
+                            pRbMap->prbMap[0].nRBStart = 0;
+                            pRbMap->prbMap[0].nRBSize = pXranConf->nDLRBs;
+                            pRbMap->prbMap[0].nBeamIndex = 0;
+                            pRbMap->prbMap[0].compMethod = XRAN_COMPMETHOD_NONE;
+                            pRbMap->prbMap[0].iqWidth    = 16;
+                        } else if(pXranConf->ru_conf.xranCat == XRAN_CATEGORY_B
+                                    && startupConfiguration.appMode == APP_O_DU
+                                    && sym_id == 0){ // BF Ws are per slot
+                            int idxElm = 0;
+                            char* dl_bfw_pos  = ((char*)p_tx_dl_bfw_buffer[flowId]) + tx_dl_bfw_buffer_position[flowId];
+                            struct xran_prb_elm* p_pRbMapElm = NULL;
+                            for (idxElm = 0;  idxElm < pRbMap->nPrbElm; idxElm++){
+                                p_pRbMapElm = &pRbMap->prbMap[idxElm];
+                                p_pRbMapElm->bf_weight.nAntElmTRx = pXranConf->nAntElmTRx;
+                                if(p_pRbMapElm->BeamFormingType == XRAN_BEAM_WEIGHT && p_pRbMapElm->bf_weight_update){
+                                    int16_t  ext_len       = 9600;
+                                    int16_t  ext_sec_total = 0;
+                                    int8_t * ext_buf =(int8_t*) xran_malloc(ext_len);
+                                    int8_t * ext_buf_start = ext_buf;
+                                    if (ext_buf){
+                                        ext_buf += (RTE_PKTMBUF_HEADROOM +
+                                                    sizeof (struct xran_ecpri_hdr) +
+                                                    sizeof(struct xran_cp_radioapp_common_header) +
+                                                    sizeof(struct xran_cp_radioapp_section1));
+
+                                        ext_len -= (RTE_PKTMBUF_HEADROOM +
+                                                    sizeof(struct xran_ecpri_hdr) +
+                                                    sizeof(struct xran_cp_radioapp_common_header) +
+                                                    sizeof(struct xran_cp_radioapp_section1));
+
+                                        ext_sec_total =  xran_cp_populate_section_ext_1((int8_t *)ext_buf,
+                                                                    ext_len,
+                                                                    (int16_t *) (dl_bfw_pos + (p_pRbMapElm->nRBStart*pXranConf->nAntElmTRx)*4),
+                                                                    p_pRbMapElm->nRBSize,
+                                                                    pXranConf->nAntElmTRx,
+                                                                    p_pRbMapElm->iqWidth, p_pRbMapElm->compMethod);
+                                        if(ext_sec_total > 0){
+                                            p_pRbMapElm->bf_weight.p_ext_start    = ext_buf_start;
+                                            p_pRbMapElm->bf_weight.p_ext_section  = ext_buf;
+                                            p_pRbMapElm->bf_weight.ext_section_sz = ext_sec_total;
+                                        }else {
+                                            rte_panic("xran_cp_populate_section_ext_1 return error [%d]\n", ext_sec_total);
+                                        }
+                                    } else {
+                                        rte_panic("xran_malloc return NULL\n");
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        printf("DL pRbMap ==NULL\n");
+                        exit(-1);
+                    }
+                    **/
+
+
+                    //pos =  ((char*)p_tx_play_buffer[flowId]) + tx_play_buffer_position[flowId];
+                    txdata = &ru->common.txdataF_BF[aa][symbol * fp->ofdm_symbol_size];
+                    ptr = psBbuIo->sFrontHaulTxBbuIoBufCtrl[tti][cc_id][ant_id].sBufferList.pBuffers[sym_id].pData;
+
+                    if(ptr){
+                        int idxElm = 0;
+                        u8dptr = (uint8_t*)ptr;
+                        int16_t payload_len = 0;
+
+                        uint8_t  *dst = (uint8_t *)u8dptr;
+                        uint8_t  *src = (uint8_t *)txdata;
+                        struct xran_prb_elm* p_prbMapElm = &pRbMap->prbMap[idxElm];
+                        dst =  xran_add_hdr_offset(dst, p_prbMapElm->compMethod);
+                        for (idxElm = 0;  idxElm < pRbMap->nPrbElm; idxElm++) {
+                            struct xran_section_desc *p_sec_desc = NULL;
+                            p_prbMapElm = &pRbMap->prbMap[idxElm];
+                            p_sec_desc =  p_prbMapElm->p_sec_desc[sym_id];
+
+                            if(p_sec_desc == NULL){
+                                printf ("p_sec_desc == NULL\n");
+                                exit(-1);
+                            }
+                            src = (uint8_t *)(txdata + p_prbMapElm->nRBStart*N_SC_PER_PRB*4L);
+
+                            if(p_prbMapElm->compMethod == XRAN_COMPMETHOD_NONE) {
+                                payload_len = p_prbMapElm->nRBSize*N_SC_PER_PRB*4L;
+
+                                // BENETEL REFERENCE for copying
+                                /*
+                                memcpy(&s->buffers.dl[aa][subframe][symbol*1200*4],
+                                        txdata + 2048 - 600,
+                                        600 * 4);
+                                memcpy(&s->buffers.dl[aa][subframe][symbol*1200*4] + 600*4,
+                                        txdata + 1,
+                                        600 * 4);
+                                */
+
+                                rte_memcpy(dst, src, payload_len);
+
+                            } else if (p_prbMapElm->compMethod == XRAN_COMPMETHOD_BLKFLOAT) {
+                                struct xranlib_compress_request  bfp_com_req;
+                                struct xranlib_compress_response bfp_com_rsp;
+
+                                memset(&bfp_com_req, 0, sizeof(struct xranlib_compress_request));
+                                memset(&bfp_com_rsp, 0, sizeof(struct xranlib_compress_response));
+
+                                bfp_com_req.data_in    = (int16_t*)src;
+                                bfp_com_req.numRBs     = p_prbMapElm->nRBSize;
+                                bfp_com_req.len        = p_prbMapElm->nRBSize*N_SC_PER_PRB*4L;
+                                bfp_com_req.compMethod = p_prbMapElm->compMethod;
+                                bfp_com_req.iqWidth    = p_prbMapElm->iqWidth;
+
+                                bfp_com_rsp.data_out   = (int8_t*)dst;
+                                bfp_com_rsp.len        = 0;
+
+                                xranlib_compress_avx512(&bfp_com_req, &bfp_com_rsp);
+                                payload_len = bfp_com_rsp.len;
+
+                            }else {
+                                printf ("p_prbMapElm->compMethod == %d is not supported\n",
+                                    p_prbMapElm->compMethod);
+                                exit(-1);
+                            }
+
+                            /* update RB map for given element */
+                            p_sec_desc->iq_buffer_offset = RTE_PTR_DIFF(dst, u8dptr);
+                            p_sec_desc->iq_buffer_len = payload_len;
+
+                            /* add headroom for ORAN headers between IQs for chunk of RBs*/
+                            dst += payload_len;
+                            dst  = xran_add_hdr_offset(dst, p_prbMapElm->compMethod);
+                        }
+                    } else {
+                        exit(-1);
+                        printf("ptr ==NULL\n");
+                    }
+
+                    // BENETEL CURRENTLY NO C-PLANE, SKIP FOR NOW
+                    /* c-plane UL */
+                    /**
+                    pRbMap = (struct xran_prb_map *) psBbuIo->sFrontHaulRxPrbMapBbuIoBufCtrl[tti][cc_id][ant_id].sBufferList.pBuffers->pData;
+                    if(pRbMap){
+                        if (xranInit.DynamicSectionEna == 0){
+                            pRbMap->dir = XRAN_DIR_UL;
+                            pRbMap->xran_port = 0;
+                            pRbMap->band_id = 0;
+                            pRbMap->cc_id = cc_id;
+                            pRbMap->ru_port_id = ant_id;
+                            pRbMap->tti_id = tti;
+                            pRbMap->start_sym_id = 0;
+                            pRbMap->nPrbElm = 1;
+                            pRbMap->prbMap[0].nRBStart = 0;
+                            pRbMap->prbMap[0].nRBSize = pXranConf->nULRBs;
+                            pRbMap->prbMap[0].nStartSymb = 0;
+                            pRbMap->prbMap[0].numSymb = 14;
+                            pRbMap->prbMap[0].p_sec_desc[sym_id]->iq_buffer_offset = 0;
+                            pRbMap->prbMap[0].p_sec_desc[sym_id]->iq_buffer_len    = pXranConf->nULRBs *4L;
+                            pRbMap->prbMap[0].nBeamIndex = 0;
+                            pRbMap->prbMap[0].compMethod = XRAN_COMPMETHOD_NONE;
+                        } else if(pXranConf->ru_conf.xranCat == XRAN_CATEGORY_B
+                                    && startupConfiguration.appMode == APP_O_DU
+                                    && sym_id == 0){
+                            int idxElm = 0;
+                            char        * ul_bfw_pos =  ((char*)p_tx_ul_bfw_buffer[flowId]) + tx_ul_bfw_buffer_position[flowId];
+                            struct xran_prb_elm* p_pRbMapElm = NULL;
+
+                            for (idxElm = 0;  idxElm < pRbMap->nPrbElm; idxElm++){
+                                p_pRbMapElm = &pRbMap->prbMap[idxElm];
+                                p_pRbMapElm->bf_weight.nAntElmTRx = pXranConf->nAntElmTRx;
+                                if(p_pRbMapElm->BeamFormingType == XRAN_BEAM_WEIGHT && p_pRbMapElm->bf_weight_update){
+                                    int16_t  ext_len       = 9600;
+                                    int16_t  ext_sec_total = 0;
+                                    int8_t * ext_buf =(int8_t*) xran_malloc(ext_len);
+                                    int8_t * ext_buf_start = ext_buf;
+                                    int idRb = 0;
+                                    int16_t *ptr = NULL;
+                                    int i;
+                                    if (ext_buf){
+
+                                        ext_buf += (RTE_PKTMBUF_HEADROOM +
+                                                    sizeof(struct xran_ecpri_hdr) +
+                                                    sizeof(struct xran_cp_radioapp_section1_header) +
+                                                    sizeof(struct xran_cp_radioapp_section1));
+
+                                        ext_len -= (RTE_PKTMBUF_HEADROOM +
+                                                    sizeof(struct xran_ecpri_hdr) +
+                                                    sizeof(struct xran_cp_radioapp_section1_header) +
+                                                    sizeof(struct xran_cp_radioapp_section1));
+
+                                        ptr = (int16_t*)(ul_bfw_pos +(p_pRbMapElm->nRBStart*pXranConf->nAntElmTRx)*4);
+                                        ext_sec_total =  xran_cp_populate_section_ext_1((int8_t *)ext_buf,
+                                                                    ext_len,
+                                                                    (int16_t *) (ul_bfw_pos + (p_pRbMapElm->nRBStart*pXranConf->nAntElmTRx)*4),
+                                                                    p_pRbMapElm->nRBSize,
+                                                                    pXranConf->nAntElmTRx,
+                                                                    p_pRbMapElm->iqWidth, p_pRbMapElm->compMethod);
+                                        if(ext_sec_total > 0){
+                                            p_pRbMapElm->bf_weight.p_ext_start    = ext_buf_start;
+                                            p_pRbMapElm->bf_weight.p_ext_section  = ext_buf;
+                                            p_pRbMapElm->bf_weight.ext_section_sz = ext_sec_total;
+                                        }else {
+                                            rte_panic("xran_cp_populate_section_ext_1 return error [%d]\n", ext_sec_total);
+                                        }
+                                    } else {
+                                        rte_panic("xran_malloc return NULL\n");
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        printf("DL pRbMap ==NULL\n");
+                        exit(-1);
+                    }
+                    **/
+
+
+                }
+            }
+
+            // NEED TO INVESTIGATE FOR PRACH, SKIP FOR NOW
+            /* prach TX for RU only */
+            /**
+            if(startupConfiguration.appMode == APP_O_RU && startupConfiguration.enablePrach){
+                for(ant_id = 0; ant_id < xran_max_antenna_nr; ant_id++){
+                    for(sym_id = 0; sym_id < XRAN_NUM_OF_SYMBOL_PER_SLOT; sym_id++) {
+                        flowId = startupConfiguration.numAxc*cc_id + ant_id;
+
+                        if(p_tx_prach_play_buffer[flowId]){
+                            pos =  ((char*)p_tx_prach_play_buffer[flowId]);
+
+                            ptr = psBbuIo->sFHPrachRxBbuIoBufCtrl[tti][cc_id][ant_id].sBufferList.pBuffers[sym_id].pData;
+
+                            if(ptr && pos){
+                                u32dptr = (uint32_t*)(ptr);
+                                // duplicate full PRACH (repetition * occassions ) in every symbol 
+                                memset(u32dptr,0 , PRACH_PLAYBACK_BUFFER_BYTES);
+                                rte_memcpy(u32dptr, pos, RTE_MIN(PRACH_PLAYBACK_BUFFER_BYTES, tx_prach_play_buffer_size[flowId]));
+                            } else {
+                                exit(-1);
+                                printf("ptr ==NULL\n");
+                            }
+                        } else {
+                            //printf("flowId %d\n", flowId);
+                        }
+                    }
+                }
+            }
+            **/
+
+            // NEED TO INVESTIGATE FOR SRS, SKIP FOR NOW
+            /* SRS TX for RU only */
+            /**
+            if(startupConfiguration.appMode == APP_O_RU && startupConfiguration.enableSrs){
+                for(ant_id = 0; ant_id < xran_max_ant_array_elm_nr; ant_id++){
+                    for(sym_id = 0; sym_id < XRAN_MAX_NUM_OF_SRS_SYMBOL_PER_SLOT; sym_id++) {
+                        flowId = startupConfiguration.antElmTRx*cc_id + ant_id;
+
+                        if(p_tx_srs_play_buffer[flowId]){
+                            pos =  ((char*)p_tx_srs_play_buffer[flowId]) + tx_srs_play_buffer_position[flowId];
+                            ptr = psBbuIo->sFHSrsRxBbuIoBufCtrl[tti][cc_id][ant_id].sBufferList.pBuffers[sym_id].pData;
+
+                            if(startupConfiguration.srsSymMask & (1 << sym_id) ){
+                                if(ptr && pos){
+                                    u32dptr = (uint32_t*)(ptr);
+                                    memset(u32dptr,0 , pXranConf->nULRBs*N_SC_PER_PRB*4);
+                                    rte_memcpy(u32dptr, pos, pXranConf->nULRBs*N_SC_PER_PRB*4);
+                                } else {
+                                    exit(-1);
+                                    printf("ptr ==NULL\n");
+                                }
+                            }
+
+                            tx_srs_play_buffer_position[flowId] += pXranConf->nULRBs*N_SC_PER_PRB*4;
+
+                            if(tx_srs_play_buffer_position[flowId] >= tx_srs_play_buffer_size[flowId])
+                                tx_srs_play_buffer_position[flowId] = 0;
+                        } else {
+                            //printf("flowId %d\n", flowId);
+                        }
+                    }
+                }
+            }
+            **/
+        }
+    }
+
+
+  // BENETEL ORIGINAL LOOP
+  /**
   for (aa = 0; aa < ru->nb_tx; aa++) {
     for (symbol = 0; symbol < 14; symbol++) {
       txdata = &ru->common.txdataF_BF[aa][symbol * fp->ofdm_symbol_size];
@@ -1839,10 +2175,7 @@ void oranFHI_fh_if4p5_south_out(RU_t *ru,
       }
     }
   }
-
-  s->buffers.dl_busy[0][subframe] = 0x3fff;
-  s->buffers.dl_busy[1][subframe] = 0x3fff;
-  unlock_dl_buffer(&s->buffers, subframe);
+  **/
 
   VCD_SIGNAL_DUMPER_DUMP_VARIABLE_BY_NAME(VCD_SIGNAL_DUMPER_VARIABLES_FRAME_NUMBER_IF4P5_SOUTH_OUT_RU+ru->idx, ru->proc.frame_tx);
   VCD_SIGNAL_DUMPER_DUMP_VARIABLE_BY_NAME(VCD_SIGNAL_DUMPER_VARIABLES_SUBFRAME_NUMBER_IF4P5_SOUTH_OUT_RU+ru->idx, ru->proc.tti_tx);
