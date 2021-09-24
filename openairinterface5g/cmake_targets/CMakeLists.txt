@@ -993,6 +993,34 @@ SET(DPDK_LIBS "-Wl,-rpath,$ENV{RTE_SDK}/$ENV{RTE_TARGET}/lib -Wl,--whole-archive
 TARGET_LINK_LIBRARIES(benetel_5g ${DPDK_LIBS})
 TARGET_LINK_LIBRARIES(benetel_5g pthread dl rt m numa)
 
+# ORAN library
+######################################################################
+
+
+include_directories ("/usr/include/dpdk")
+
+set(HWLIB_ORAN_SOURCE
+  ${OPENAIR_TARGETS}/ARCH/ETHERNET/oran_fhi/benetel.c
+  ${OPENAIR_TARGETS}/ARCH/ETHERNET/oran_fhi/shared_buffers.c
+  ${OPENAIR_TARGETS}/ARCH/ETHERNET/oran_fhi/low.c
+  ${OPENAIR_TARGETS}/ARCH/ETHERNET/oran_fhi/low_dpdk.c
+  ${OPENAIR_TARGETS}/ARCH/ETHERNET/oran_fhi/dpdk_driver.c
+  ${OPENAIR_TARGETS}/ARCH/ETHERNET/oran_fhi/common.c
+  ${OPENAIR_TARGETS}/ARCH/ETHERNET/oran_fhi/config.c
+  ${OPENAIR_TARGETS}/ARCH/ETHERNET/oran_fhi/oran.c
+  ${OPENAIR_TARGETS}/ARCH/ETHERNET/oran_fhi/xran_cp_api.c
+  ${OPENAIR_TARGETS}/ARCH/ETHERNET/oran_fhi/xran_sync_api.c
+  ${OPENAIR_TARGETS}/ARCH/ETHERNET/oran_fhi/xran_transport.c
+  )
+add_library(oran MODULE ${HWLIB_ORAN_SOURCE} )
+
+set_target_properties(oran PROPERTIES COMPILE_FLAGS "-fvisibility=hidden -march=native -I$ENV{RTE_SDK}/$ENV{RTE_TARGET}/include")
+
+SET(DPDK_LIBS "-Wl,-rpath,$ENV{RTE_SDK}/$ENV{RTE_TARGET}/lib -Wl,--whole-archive -L$ENV{RTE_SDK}/$ENV{RTE_TARGET}/lib -ldpdk -Wl,--no-whole-archive")
+TARGET_LINK_LIBRARIES(oran ${DPDK_LIBS})
+TARGET_LINK_LIBRARIES(oran pthread dl rt m numa)
+
+
 ##########################################################
 
 include_directories ("${OPENAIR_TARGETS}/ARCH/COMMON")

@@ -991,6 +991,14 @@ function main() {
               ln -sf $dbin/libbenetel_5g.so.$REL $dbin/liboai_transpro.so
               echo_info "liboai_transpro.so is linked to BENETEL4G transport"
 	  fi
+	  if [ "$TP" == "oran" ]; then
+              compilations \
+		  $build_dir oran \
+		  liboran.so $dbin/liboran.$REL
+              ln -sf liboran.so liboai_transpro.so
+              ln -sf $dbin/liboran.so.$REL $dbin/liboai_transpro.so
+              echo_info "liboai_transpro.so is linked to ORAN transport"
+	  fi
       fi
   fi
 
